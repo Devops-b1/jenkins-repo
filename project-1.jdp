@@ -3,22 +3,22 @@ pipeline {
     stages{
         stage("pull stage") {
             steps {
-                
+                checkout scmGit(branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/DevopsWorking/addressbook.git']])                
             }
         }
         stage("code build") {
             steps {
-                
+                echo "code is build suceessful"   
             }
         }
         stage("test stage") {
             steps {
-                
+                echo "code is test suceessful"
             }
         }
         stage("deploy stage") {
             steps {
-                
+                echo "code is deploy suceessful"
             }
         }
     }
