@@ -1,0 +1,64 @@
+pipeline {
+    agent any
+
+    environment {
+        MAVEN_HOME = "/opt/maven/bin"
+        S3_BUCKET = "cbz-studentapp-bux"
+        WAR_FILE = "target/studentapp-2.0-SNAPSHOT.war"
+    }
+
+    stages {
+        stage(' Pull Code') {
+            steps {
+                git 'https://github.com/shubhamkalsait/studentapp-ui.git'
+            }
+        }
+
+        stage(' Build') {
+            steps {
+                sh "${MAVEN_HOME}/mvn clean package"
+            }
+        }
+
+        stage(' SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('sonar') {
+                    sh "${MAVEN_HOME}/mvn sonar:sonar -Dsonar.projectKey=studentapp"
+                }
+            }
+        }
+
+        stage(' Quality Gate') {
+            steps {
+                timeout(time: 10, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        stage(' Deploy to Tomcat') {
+            steps {
+                deploy adapters: [
+                    tomcat9(
+                        credentialsId: 'tomcat',
+                        path: '',
+                        url: 'http://3.19.238.154:8080/'
+                    )
+                ], contextPath: '/', war: '**/*.war'
+            }
+        }
+
+        stage(' Upload Artifact to S3') {
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-access-key'
+                ]]) {
+                    sh """
+                        aws s3 cp ${WAR_FILE} s3://${S3_BUCKET}/ --region us-east-1
+                    """
+                }
+            }
+        }
+    }
+}
